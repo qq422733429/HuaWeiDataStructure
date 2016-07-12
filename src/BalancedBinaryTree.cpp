@@ -1,305 +1,219 @@
-Code
-public class BinarySearchTree : IBinaryTree //实现画树接口
-    {    //成员变量
-        private Node _head; //头指针
-        private Node[] path = new Node[32]; //记录访问路径上的结点
-        private int p; //表示当前访问到的结点在_path上的索引
-        INode IBinaryTree.Head //显式接口实现
-        {
-            get { return (INode)_head; }
-        }
-        public bool Add(int value) //添加一个元素
-        {   //如果是空树，则新结点成为二叉排序树的根
-            if (_head == null)
-            {
-                _head = new Node(value);
-                _head.BF = 0;
-                return true;
-            }
-            p = 0;
-            //prev为上一次访问的结点，current为当前访问结点
-            Node prev = null, current = _head;
-            while (current != null)
-            {
-                path[p++] = current; //将路径上的结点插入数组
-                //如果插入值已存在，则插入失败
-                if (current.Data == value)
-                {
-                    return false;
-                }
-                prev = current;
-                //当插入值小于当前结点，则继续访问左子树，否则访问右子树
-                current = (value < prev.Data) ? prev.Left : prev.Right;
-            }
-            current = new Node(value); //创建新结点
-            current.BF = 0;
-            if (value < prev.Data) //如果插入值小于双亲结点的值
-            {
-                prev.Left = current; //成为左孩子
-            }
-            else //如果插入值大于双亲结点的值
-            {
-                prev.Right = current; //成为右孩子
-            }
-            path[p] = current; //将新元素插入数组path的最后
-            //修改插入点至根结点路径上各结点的平衡因子
-            int bf = 0;
-            while (p > 0)
-            {   //bf表示平衡因子的改变量，当新结点插入左子树，则平衡因子+1
-                //当新结点插入右子树，则平衡因子-1
-                bf = (value < path[p - 1].Data) ? 1 : -1;
-                path[--p].BF += bf; //改变当父结点的平衡因子
-                bf = path[p].BF; //获取当前结点的平衡因子
-                //判断当前结点平衡因子，如果为0表示该子树已平衡，不需再回溯
-                //而改变祖先结点平衡因子，此时添加成功，直接返回
-                if (bf == 0)
-                {
-                    return true;
-                }
-                else if (bf == 2 || bf == -2) //需要旋转的情况
-                {
-                    RotateSubTree(bf);
-                    return true;
-                }
-            }
-            return true;
-        }
-        //删除指定值
-        public bool Remove(int value) 
-        {
-            p = -1;
-            //parent表示双亲结点，node表示当前结点
-            Node node = _head;
-            //寻找指定值所在的结点
-            while (node != null)
-            {
-                path[++p] = node;
-                //如果找到，则调用RemoveNode方法删除结点
-                if (value == node.Data)
-                {
-                    RemoveNode(node);//现在p指向被删除结点
-                    return true; //返回true表示删除成功
-                }
-                if (value < node.Data)
-                {   //如果删除值小于当前结点，则向左子树继续寻找
-                    node = node.Left;
-                }
-                else
-                {   //如果删除值大于当前结点，则向右子树继续寻找
-                    node = node.Right;
-                }
-            }
-            return false; //返回false表示删除失败
-        }
-        //删除指定结点
-        private void RemoveNode(Node node)
-        {
-            Node tmp = null;
-            //当被删除结点存在左右子树时
-            if (node.Left != null && node.Right != null)
-            {
-                tmp = node.Left; //获取左子树
-                path[++p] = tmp;
-                while (tmp.Right != null) //获取node的中序遍历前驱结点，并存放于tmp中
-                {   //找到左子树中的最右下结点
-                    tmp = tmp.Right;
-                    path[++p] = tmp;
-                }
-                //用中序遍历前驱结点的值代替被删除结点的值
-                node.Data = tmp.Data;
-                if (path[p - 1] == node)
-                {
-                    path[p - 1].Left = tmp.Left;
-                }
-                else
-                {
-                    path[p - 1].Right = tmp.Left;
-                }
-            }
-            else //当只有左子树或右子树或为叶子结点时
-            {   //首先找到惟一的孩子结点
-                tmp = node.Left;
-                if (tmp == null) //如果只有右孩子或没孩子
-                {
-                    tmp = node.Right;
-                }
-                if (p > 0)
-                {
-                    if (path[p - 1].Left == node)
-                    {   //如果被删结点是左孩子
-                        path[p - 1].Left = tmp;
-                    }
-                    else
-                    {   //如果被删结点是右孩子
-                        path[p - 1].Right = tmp;
-                    }
-                }
-                else  //当删除的是根结点时
-                {
-                    _head = tmp;
-                }
-            }
-            //删除完后进行旋转，现在p指向实际被删除的结点
-            int data = node.Data;
-            while (p > 0)
-            {   //bf表示平衡因子的改变量，当删除的是左子树中的结点时，平衡因子-1
-                //当删除的是右子树的孩子时，平衡因子+1
-                int bf = (data <= path[p - 1].Data) ? -1 : 1;
-                path[--p].BF += bf; //改变当父结点的平衡因子
-                bf = path[p].BF; //获取当前结点的平衡因子
-                if (bf != 0) //如果bf==0，表明高度降低，继续后上回溯
-                {
-                    //如果bf为1或-1则说明高度未变，停止回溯，如果为2或-2，则进行旋转
-                    //当旋转后高度不变，则停止回溯
-                    if (bf == 1 || bf == -1 || !RotateSubTree(bf))
-                    {
-                        break;
-                    }
-                }
-            }
-        }
-        //旋转以root为根的子树，当高度改变，则返回true；高度未变则返回false
-        private bool RotateSubTree(int bf) 
-        {
-            bool tallChange = true;
-            Node root = path[p], newRoot = null;
-            if (bf == 2) //当平衡因子为2时需要进行旋转操作
-            {
-                int leftBF = root.Left.BF;
-                if (leftBF == -1) //LR型旋转
-                {
-                    newRoot = LR(root);
-                }
-                else if (leftBF == 1)
-                {
-                    newRoot = LL(root); //LL型旋转
-                }
-                else //当旋转根左孩子的bf为0时，只有删除时才会出现
-                {
-                    newRoot = LL(root);
-                    tallChange = false;
-                }
-            }
-            if (bf == -2) //当平衡因子为-2时需要进行旋转操作
-            {
-                int rightBF = root.Right.BF; //获取旋转根右孩子的平衡因子
-                if (rightBF == 1) 
-                {
-                    newRoot = RL(root); //RL型旋转
-                }
-                else if (rightBF == -1)
-                {
-                    newRoot = RR(root); //RR型旋转
-                }
-                else //当旋转根左孩子的bf为0时，只有删除时才会出现
-                {
-                    newRoot = RR(root);
-                    tallChange = false;
-                }
-            }
-            //更改新的子树根
-            if (p > 0)
-            {
-                if (root.Data < path[p - 1].Data)
-                {
-                    path[p - 1].Left = newRoot;
-                }
-                else
-                {
-                    path[p - 1].Right = newRoot;
-                }
-            }
-            else
-            {
-                _head = newRoot; //如果旋转根为AVL树的根，则指定新AVL树根结点
-            }
-            return tallChange;
-        }
-        //root为旋转根，rootPrev为旋转根双亲结点
-        private Node LL(Node root) //LL型旋转，返回旋转后的新子树根
-        {
-            Node rootNext = root.Left;
-            root.Left = rootNext.Right;
-            rootNext.Right = root;
-            if (rootNext.BF == 1)
-            {
-                root.BF = 0;
-                rootNext.BF = 0;
-            }
-            else //rootNext.BF==0的情况，删除时用
-            {
-                root.BF = 1;
-                rootNext.BF = -1;
-            }
-            return rootNext; //rootNext为新子树的根
-        }
-        private Node LR(Node root) //LR型旋转，返回旋转后的新子树根
-        {
-            Node rootNext = root.Left;
-            Node newRoot = rootNext.Right;
-            root.Left = newRoot.Right;
-            rootNext.Right = newRoot.Left;
-            newRoot.Left = rootNext;
-            newRoot.Right = root;
-            switch (newRoot.BF) //改变平衡因子
-            {
-                case 0:
-                    root.BF = 0;
-                    rootNext.BF = 0;
-                    break;
-                case 1:
-                    root.BF = -1;
-                    rootNext.BF = 0;
-                    break;
-                case -1:
-                    root.BF = 0;
-                    rootNext.BF = 1;
-                    break;
-            }
-            newRoot.BF = 0;
-            return newRoot; //newRoot为新子树的根
-        }
-        private Node RR(Node root) //RR型旋转，返回旋转后的新子树根
-        {
-            Node rootNext = root.Right;
-            root.Right = rootNext.Left;
-            rootNext.Left = root;
-            if (rootNext.BF == -1)
-            {
-                root.BF = 0;
-                rootNext.BF = 0;
-            }
-            else //rootNext.BF==0的情况，删除时用
-            {
-                root.BF = -1;
-                rootNext.BF = 1;
-            }
-            return rootNext; //rootNext为新子树的根
-        }
-        private Node RL(Node root) //RL型旋转，返回旋转后的新子树根
-        {
-            Node rootNext = root.Right;
-            Node newRoot = rootNext.Left;
-            root.Right = newRoot.Left;
-            rootNext.Left = newRoot.Right;
-            newRoot.Right = rootNext;
-            newRoot.Left = root;
-            switch (newRoot.BF) //改变平衡因子
-            {
-                case 0:
-                    root.BF = 0;
-                    rootNext.BF = 0;
-                    break;
-                case 1:
-                    root.BF = 0;
-                    rootNext.BF = -1;
-                    break;
-                case -1:
-                    root.BF = 1;
-                    rootNext.BF = 0;
-                    break;
-            }
-            newRoot.BF = 0;
-            return newRoot; //newRoot为新子树的根
-        }
+
+/*
+首先平衡二叉树是一个二叉排序树；
+其基本思想是：
+在构建二叉排序树的过程中，当每插入一个节点时，
+先检查是否因为插入而破坏了树的平衡性，若是，
+找出最小不平衡树，进行适应的旋转，使之成为新的平衡二叉树。
+*/
+#include<cstdio>
+#include<cstdlib>
+#define LH 1
+#define EH 0
+#define RH -1
+
+using namespace std;
+
+typedef struct BTNode
+{
+ int data;
+ int BF;//平衡因子（balance factor）
+ struct BTNode *lchild,*rchild;
+}BTNode,*BTree;
+
+void R_Rotate(BTree *p)//以p为根节点的二叉排序树进行右旋转
+{
+ BTree L;
+ L=(*p)->lchild;
+ (*p)->lchild=L->rchild;
+ L->rchild=(*p);
+ *p=L;//p指向新的根节点
+}
+
+void L_Rotate(BTree *p)//以p为根节点的二叉排序树进行左旋转
+{
+ BTree R;
+ R=(*p)->rchild;
+ (*p)->rchild=R->lchild;
+ R->lchild=(*p);
+ *p=R;
+}
+
+void LeftBalance(BTree *T)
+{
+ BTree L,Lr;
+ L=(*T)->lchild;
+ switch(L->BF)
+ {
+  //检查T的左子树平衡度，并作相应的平衡处理
+  case LH://新节点插入在T的左孩子的左子树上，做单右旋处理
+   (*T)->BF=L->BF=EH;
+   R_Rotate(T);
+   break;
+  case RH://新插入节点在T的左孩子的右子树上，做双旋处理
+   Lr=L->rchild;
+   switch(Lr->BF)
+   {
+    case LH:
+     (*T)->BF=RH;
+     L->BF=EH;
+     break;
+    case EH:
+     (*T)->BF=L->BF=EH;
+     break;
+    case RH:
+     (*T)->BF=EH;
+     L->BF=LH;
+     break;
+   }
+   Lr->BF=EH;
+   L_Rotate(&(*T)->lchild);
+   R_Rotate(T);
+ }
+}
+
+void RightBalance(BTree *T)
+{
+ BTree R,Rl;
+ R=(*T)->rchild;
+ switch(R->BF)
+ {
+  case RH://新节点插在T的右孩子的右子树上，要做单左旋处理
+   (*T)->BF=R->BF=EH;
+   L_Rotate(T);
+   break;
+  case LH://新节点插在T的右孩子的左子树上，要做双旋处理
+   Rl=R->lchild;
+   switch(Rl->BF)
+   {
+    case LH:
+     (*T)->BF=EH;
+     R->BF=RH;
+     break;
+    case EH:
+     (*T)->BF=R->BF=EH;
+     break;
+    case RH:
+     (*T)->BF=LH;
+     R->BF=EH;
+     break;
+   }
+   Rl->BF=EH;
+   R_Rotate(&(*T)->rchild);
+   L_Rotate(T);
+ }
+}
+
+bool InsertAVL(BTree *T,int e,bool *taller)//变量taller反应T长高与否
+{
+ if(!*T)
+ {
+  *T=(BTree)malloc(sizeof(BTNode));
+  (*T)->data=e;
+  (*T)->lchild=(*T)->rchild=NULL;
+  (*T)->BF=EH;
+  *taller=true;
+ }
+ else
+ {
+  if(e==(*T)->data)//不插入
+  {
+   *taller=false;
+   return false;
+  }
+  if(e<(*T)->data)
+  {
+   if(!InsertAVL(&(*T)->lchild,e,taller))//未插入
+    return false;
+   if(*taller)//以插入左子树，且左子树变高
+   {
+    switch((*T)->BF)
+    {
+     case LH://原本左子树比右子树高，需要做左平衡处理
+      LeftBalance(T);
+      *taller=false;
+      break;
+     case EH://原本左右子树等高，现因左子树增高而树增高
+      (*T)->BF=LH;
+      *taller=true;
+      break;
+     case RH://原本右子树比左子树高，现在左右子树等高
+      (*T)->BF=EH;
+      *taller=false;
+      break;
     }
+   }
+  }
+  else
+  {
+   //应在T的右子树中搜寻
+   if(!InsertAVL(&(*T)->rchild,e,taller))
+    return false;
+   if(*taller)//插入右子树，且右子树长高
+   {
+    switch((*T)->BF)
+    {
+     case LH://原本左子树比右子树高，现在左右子树等高
+      (*T)->BF=EH;
+      *taller=false;
+      break;
+     case EH://原本左右子树等高，现在右子树变高
+      (*T)->BF=RH;
+      *taller=true;
+      break;
+     case RH://原本右子树比左子树高，现在需做右平衡处理
+      RightBalance(T);
+      *taller=false;
+      break;
+    }
+   }
+  }
+ }
+ return true;
+}
+
+bool Find(BTree T,int key)
+{
+ if(!T)
+  return false;
+ else if(T->data==key)
+  return true;
+ else if(T->data<key)
+  return Find(T->rchild,key);
+ else
+  return Find(T->lchild,key);
+}
+
+void Output(BTree T)
+{
+ if(T)
+ {
+  printf("%d",T->data);
+  if(T->lchild||T->rchild)
+  {
+   printf("(");
+   Output(T->lchild);
+   printf(",");
+   Output(T->rchild);
+   printf(")");
+  }
+ }
+}
+
+int main(int argc,char *argv[])
+{
+ int i;
+ int A[]={3,2,1,4,5,6,7,10,9,8};
+ BTree T=NULL;
+ bool taller;
+ for(i=0;i<sizeof(A)/sizeof(int);i++)
+  InsertAVL(&T,A[i],&taller);
+ Output(T);
+ printf("\n");
+ if(Find(T,6))
+  printf("6 is find in the AVL tree!\n");
+ else
+  printf("6 is not find in the AVL tree!\n");
+
+ return 0;
+}
